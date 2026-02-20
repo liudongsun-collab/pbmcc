@@ -3,3 +3,9 @@ uvicorn[standard]
 sqlalchemy[asyncio]
 asyncpg
 python-dotenv
+
+# Testing
+pytest
+pytest-asyncio
+httpx
+aiosqlite
