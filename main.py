@@ -1,12 +1,16 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from database import get_db, engine, Base
+from models import User
 
 app = FastAPI()
 
-fake_users = [
-    {"id": 1, "name": "Alice", "email": "alice@example.com"},
-    {"id": 2, "name": "Bob", "email": "bob@example.com"},
-    {"id": 3, "name": "Charlie", "email": "charlie@example.com"},
-]
+
+@app.on_event("startup")
+async def startup():
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
 
 
 @app.get("/")
@@ -20,5 +24,7 @@ def health():
 
 
 @app.get("/users")
-def get_users():
-    return {"users": fake_users}
+async def get_users(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(User))
+    users = result.scalars().all()
+    return {"users": [{"id": u.id, "name": u.name, "email": u.email} for u in users]}
