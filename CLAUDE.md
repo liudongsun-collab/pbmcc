@@ -84,4 +84,3 @@ Already set in `~/.bashrc` — no action needed per session.
 
 - No authentication — all endpoints are public
 - No pagination on `GET /users`
-- No `POST /users` endpoint
