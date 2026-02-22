@@ -1,4 +1,6 @@
-# pbmcc — Claude Code Instructions
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Overview
 FastAPI web application with async PostgreSQL database.
@@ -8,26 +10,16 @@ GitHub: https://github.com/liudongsun-collab/pbmcc (private)
 
 ## Commands
 
-### Install dependencies
 ```bash
-pip install -r requirements.txt
+pip install -r requirements.txt   # install dependencies
+uvicorn main:app --reload          # run dev server
+
+pytest                             # run all tests
+pytest -v                          # verbose
+pytest -k "users"                  # run tests matching name
 ```
 
-### Run development server
-```bash
-uvicorn main:app --reload
-```
-
-### Run tests
-```bash
-pytest
-pytest -v          # verbose
-pytest -k "users"  # run specific test
-```
-
-### API docs (when server is running)
-- Swagger UI: http://localhost:8000/docs
-- ReDoc:       http://localhost:8000/redoc
+API docs (server must be running): http://localhost:8000/docs
 
 ---
 
@@ -35,43 +27,43 @@ pytest -k "users"  # run specific test
 
 ```
 pbmcc/
-├── main.py         # FastAPI app, route handlers
-├── database.py     # Async SQLAlchemy engine, session, Base
-├── models.py       # SQLAlchemy ORM models
+├── main.py         # FastAPI app, route handlers, startup event
+├── database.py     # Async SQLAlchemy engine, session factory, Base, get_db
+├── models.py       # SQLAlchemy ORM models (User)
 ├── requirements.txt
 ├── pytest.ini      # asyncio_mode = auto
 └── tests/
-    ├── conftest.py # Test client + in-memory SQLite override
+    ├── conftest.py # Overrides get_db with in-memory SQLite; provides `client` fixture
     └── test_main.py
 ```
 
 ### Key decisions
 - **Async throughout**: all DB operations use `async/await` via `asyncpg`
-- **Dependency injection**: DB session injected via `Depends(get_db)` — do not import session directly
-- **Test DB**: tests use SQLite in-memory (`aiosqlite`), not PostgreSQL — keep tests self-contained
-- **`@app.on_event("startup")` is deprecated** — migrate new startup logic to `lifespan` context manager
+- **Dependency injection**: DB session injected via `Depends(get_db)` in `database.py` — never import the session directly
+- **Test DB**: tests use SQLite in-memory (`aiosqlite`) via `app.dependency_overrides[get_db]` — keep tests self-contained and never require a live Postgres instance
+- **Table creation**: `main.py` creates all tables on startup via `Base.metadata.create_all` inside `@app.on_event("startup")` — this decorator is deprecated and should be migrated to a `lifespan` context manager
+
+### `load_dotenv()` is not yet called
+`database.py` reads `DATABASE_URL` via `os.getenv()` but no file calls `load_dotenv()`. If running locally with a `.env` file, add `load_dotenv()` to `main.py` or `database.py` (requires `python-dotenv`, already in `requirements.txt`).
 
 ---
 
 ## Code Conventions
 
-- Python 3.12
-- Async-first: all route handlers that touch the DB must be `async def`
-- SQLAlchemy models go in `models.py`, inherit from `Base`
-- New routes go in `main.py` (until the project grows enough to warrant routers)
-- Use `Mapped` + `mapped_column` for model columns (SQLAlchemy 2.0 style)
-- No raw SQL — use SQLAlchemy ORM or `select()` expressions
-- Environment variables loaded from `.env` via `python-dotenv`
+- Python 3.12, async-first — all route handlers touching the DB must be `async def`
+- SQLAlchemy models in `models.py`, inherit from `Base`, use `Mapped` + `mapped_column` (SQLAlchemy 2.0 style)
+- New routes go in `main.py` (until the project warrants APIRouter)
+- No raw SQL in application code — use SQLAlchemy ORM or `select()` expressions
+- Raw SQL via `text()` is acceptable in test fixtures for seeding data (see `test_main.py`)
 
 ---
 
 ## Environment Setup
 
-1. Copy `.env.example` to `.env` and fill in credentials:
-   ```
-   DATABASE_URL=postgresql+asyncpg://user:password@localhost:5432/pbmcc
-   ```
-2. Never commit `.env` — it is in `.gitignore`
+Copy `.env.example` to `.env` and fill in:
+```
+DATABASE_URL=postgresql+asyncpg://user:password@localhost:5432/pbmcc
+```
 
 ### Network proxy (Windows)
 ```bash
@@ -86,24 +78,15 @@ Already set in `~/.bashrc` — no action needed per session.
 
 - Default branch: `master`
 - Branch naming: `feature/`, `fix/`, `chore/`
-- PRs merge into `master` via GitHub (`gh pr merge --merge --delete-branch`)
-- Always run `pytest` before committing
-
----
-
-## Non-Negotiable Rules
-
-- **Never skip tests** — run `pytest` before every commit
-- **Never commit `.env`** — secrets stay local
-- **Never push directly to `master`** — always use a feature branch + PR
-- **Never modify test fixtures in `conftest.py`** without updating all affected tests
-- **Never use synchronous DB calls** — all DB access must be `async`
+- PRs merge into `master` via `gh pr merge --merge --delete-branch`
+- Run `pytest` before every commit; never push directly to `master`
 
 ---
 
 ## Known Issues / TODOs
 
-- `@app.on_event("startup")` is deprecated — migrate to `lifespan` handler
-- No authentication yet — all endpoints are public
-- No pagination on `GET /users` — add when user count grows
-- No `POST /users` endpoint yet
+- `@app.on_event("startup")` is deprecated — migrate to `lifespan` context manager
+- `load_dotenv()` is never called — `.env` file won't be read unless env vars are exported in shell
+- No authentication — all endpoints are public
+- No pagination on `GET /users`
+- No `POST /users` endpoint
