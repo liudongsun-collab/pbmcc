@@ -41,3 +41,22 @@ async def test_get_users_with_data(client: AsyncClient):
     assert len(users) == 1
     assert users[0]["name"] == "Alice"
     assert users[0]["email"] == "alice@example.com"
+
+
+@pytest.mark.asyncio
+async def test_create_user(client: AsyncClient):
+    response = await client.post("/users", json={"name": "Bob", "email": "bob@example.com"})
+    assert response.status_code == 201
+    data = response.json()
+    assert data["name"] == "Bob"
+    assert data["email"] == "bob@example.com"
+    assert "id" in data
+
+
+@pytest.mark.asyncio
+async def test_create_user_duplicate_email(client: AsyncClient):
+    payload = {"name": "Bob", "email": "bob@example.com"}
+    await client.post("/users", json=payload)
+    response = await client.post("/users", json=payload)
+    assert response.status_code == 409
+    assert response.json()["detail"] == "Email already registered"
