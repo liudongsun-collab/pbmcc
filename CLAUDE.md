@@ -41,10 +41,7 @@ pbmcc/
 - **Async throughout**: all DB operations use `async/await` via `asyncpg`
 - **Dependency injection**: DB session injected via `Depends(get_db)` in `database.py` — never import the session directly
 - **Test DB**: tests use SQLite in-memory (`aiosqlite`) via `app.dependency_overrides[get_db]` — keep tests self-contained and never require a live Postgres instance
-- **Table creation**: `main.py` creates all tables on startup via `Base.metadata.create_all` inside `@app.on_event("startup")` — this decorator is deprecated and should be migrated to a `lifespan` context manager
-
-### `load_dotenv()` is not yet called
-`database.py` reads `DATABASE_URL` via `os.getenv()` but no file calls `load_dotenv()`. If running locally with a `.env` file, add `load_dotenv()` to `main.py` or `database.py` (requires `python-dotenv`, already in `requirements.txt`).
+- **Table creation**: `main.py` creates all tables on startup via `Base.metadata.create_all` inside the `lifespan` context manager
 
 ---
 
@@ -85,8 +82,6 @@ Already set in `~/.bashrc` — no action needed per session.
 
 ## Known Issues / TODOs
 
-- `@app.on_event("startup")` is deprecated — migrate to `lifespan` context manager
-- `load_dotenv()` is never called — `.env` file won't be read unless env vars are exported in shell
 - No authentication — all endpoints are public
 - No pagination on `GET /users`
 - No `POST /users` endpoint
